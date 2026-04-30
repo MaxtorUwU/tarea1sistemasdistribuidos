@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  python-app:
+    build: .
+    container_name: python_tester
+    volumes:
+      - .:/app
+    depends_on:
+      - redis_lfu_50MB
+      - redis_lfu_200MB
+      - redis_lfu_500MB
+      - redis_lru_50MB
+      - redis_lru_200MB
+      - redis_lru_500MB
+
+  # --- ESCENARIOS LFU ---
+  redis_lfu_50MB:
+    image: redis:latest
+    container_name: redis_lfu_50MB
+    command: redis-server --maxmemory 50MB --maxmemory-policy allkeys-lfu
+
+  redis_lfu_200MB:
+    image: redis:latest
+    container_name: redis_lfu_200MB
+    command: redis-server --maxmemory 200MB --maxmemory-policy allkeys-lfu
+
+  redis_lfu_500MB:
+    image: redis:latest
+    container_name: redis_lfu_500MB
+    command: redis-server --maxmemory 500MB --maxmemory-policy allkeys-lfu
+
+  # --- ESCENARIOS LRU ---
+  redis_lru_50MB:
+    image: redis:latest
+    container_name: redis_lru_50MB
+    command: redis-server --maxmemory 50MB --maxmemory-policy allkeys-lru
+
+  redis_lru_200MB:
+    image: redis:latest
+    container_name: redis_lru_200MB
+    command: redis-server --maxmemory 200MB --maxmemory-policy allkeys-lru
+
+  redis_lru_500MB:
+    image: redis:latest
+    container_name: redis_lru_500MB
+    command: redis-server --maxmemory 500MB --maxmemory-policy allkeys-lru
