@@ -13,11 +13,9 @@ def generar_reporte_completo(file_path="resultados_detallados.csv"):
 
     sns.set_theme(style="whitegrid")
     
-    # Lista de métricas que vamos a graficar
     metricas = ['hit_rate', 'throughput', 'p50', 'efficiency']
     
     for metrica in metricas:
-        # catplot crea columnas (col="distribution") automáticamente
         g = sns.catplot(
             data=df, 
             kind="bar",
@@ -30,20 +28,17 @@ def generar_reporte_completo(file_path="resultados_detallados.csv"):
             palette="muted"
         )
         
-        # Títulos y ajustes estéticos
         g.fig.subplots_adjust(top=0.85)
         g.fig.suptitle(f'Comparativa de {metrica.upper()}: Zipf vs Uniforme', fontsize=16)
         g.set_axis_labels("Tamaño de Memoria (MB)", metrica.upper())
         g.set_titles("Distribución: {col_name}")
         
-        # Guardar gráfico individual
         nombre_archivo = f'grafico_comparativo_{metrica}.png'
         plt.savefig(nombre_archivo)
         print(f"✅ Guardado: {nombre_archivo}")
         plt.close()
 
-    # GRÁFICO EXTRA: EVICTION RATE
-    # También generamos el de evicciones separado para ver cómo se comporta la caché
+  
     g_evic = sns.catplot(
         data=df, kind="bar",
         x="size_MB", y="eviction_rate", hue="policy", col="distribution",
