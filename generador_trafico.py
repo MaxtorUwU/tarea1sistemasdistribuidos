@@ -2,7 +2,7 @@ import time
 import random
 import numpy as np
 import os 
-from concurrent.futures import ThreadPoolExecutor # <--- IMPORT PARA CONCURRENCIA
+from concurrent.futures import ThreadPoolExecutor 
 
 from loader import load_data
 from cache_manager import get_or_compute, redis_client
@@ -12,7 +12,6 @@ ZONAS = ["Z1", "Z2", "Z3", "Z4", "Z5"]
 QUERIES = ["q1", "q2", "q3", "q4", "q5"]
 
 def generar_pedido(tipo_distribucion="uniforme", alpha=1.2):
-    """Crea una consulta basada en la distribución elegida"""
     if tipo_distribucion == "uniforme":
         q = random.choice(QUERIES)
         z1 = random.choice(ZONAS)
@@ -22,13 +21,11 @@ def generar_pedido(tipo_distribucion="uniforme", alpha=1.2):
         q = QUERIES[q_idx]
         z1 = ZONAS[z1_idx]
     
-    # Miles de combinaciones únicas obligan a la caché a llenarse
     conf = round(random.uniform(0.4, 0.9), 3) 
     
     return q, z1, conf
 
 def ejecutar_una_consulta(tipo_dist, real_data):
-    """Función 'worker' que ejecuta una sola consulta de forma aislada"""
     q, z1, conf = generar_pedido(tipo_dist)
     
     if q == "q1":
@@ -44,15 +41,11 @@ def ejecutar_una_consulta(tipo_dist, real_data):
         get_or_compute(f"dist:{z1}:bins=5", "q5", q5_confidence_dist, real_data, z1, bins=5)
 
 def ejecutar_simulacion(nombre_experimento, tipo_dist, num_consultas, real_data):
-    """Ejecuta la simulación enviando cientos de consultas en paralelo"""
     print(f"\n--- INICIANDO TRÁFICO CONCURRENTE: {nombre_experimento} ---")
     
     inicio = time.time()
     
-    # 🔥 AQUÍ CREAMOS LA CONCURRENCIA (max_workers = 20 hilos simultáneos)
     with ThreadPoolExecutor(max_workers=20) as executor:
-        # Mapeamos la función 'worker' a la cantidad de consultas que queramos
-        # Esto envía todas las tareas al pool de hilos para ejecutarse en paralelo
         list(executor.map(lambda _: ejecutar_una_consulta(tipo_dist, real_data), range(num_consultas)))
             
     fin = time.time()
