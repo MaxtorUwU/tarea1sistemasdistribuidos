@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Asegúrate de dar permisos de ejecución: chmod +x run_test.sh
+# chmod +x run_test.sh
 
 echo "=========================================="
 echo "1. Optimizando Imagen de Docker"
