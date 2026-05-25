@@ -18,15 +18,8 @@ def _bbox_area_km2(z: dict) -> float:
 ZONE_AREA_KM2 = {zid: _bbox_area_km2(z) for zid, z in ZONES.items()}
 
 
-# ── Carga principal ──────────────────────────────────────────────────────────
 def load_data(csv_path: str) -> dict:
-    """
-    Lee el CSV de Google Open Buildings y devuelve:
-        data[zone_id] = [ {"area": float, "confidence": float}, ... ]
-
-    Estructura optimizada para las consultas Q1–Q5 (solo los campos necesarios).
-    Si el CSV no existe, genera datos sintéticos para desarrollo.
-    """
+    
     if not os.path.exists(csv_path):
         print(f"[loader] ADVERTENCIA: '{csv_path}' no encontrado → usando datos sintéticos.")
         return _generate_synthetic_data()
