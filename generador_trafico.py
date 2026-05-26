@@ -1,58 +1,74 @@
 import time
 import random
 import numpy as np
-import os 
-from concurrent.futures import ThreadPoolExecutor 
-
-from loader import load_data
-from cache_manager import get_or_compute, redis_client
-from test_queries import q1_count, q2_area, q3_density, q4_compare, q5_confidence_dist
+import os
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from kafka_manager import kafka_client
 
 ZONAS = ["Z1", "Z2", "Z3", "Z4", "Z5"]
 QUERIES = ["q1", "q2", "q3", "q4", "q5"]
+TOPIC_PRINCIPAL = 'consultas_principal'
 
 def generar_pedido(tipo_distribucion="uniforme", alpha=1.2):
     if tipo_distribucion == "uniforme":
         q = random.choice(QUERIES)
         z1 = random.choice(ZONAS)
-    else:  
+    else:
         q_idx = min(np.random.zipf(alpha) - 1, len(QUERIES) - 1)
         z1_idx = min(np.random.zipf(alpha) - 1, len(ZONAS) - 1)
         q = QUERIES[q_idx]
         z1 = ZONAS[z1_idx]
     
-    conf = round(random.uniform(0.4, 0.9), 3) 
-    
+    conf = round(random.uniform(0.4, 0.9), 3)
     return q, z1, conf
 
-def ejecutar_una_consulta(tipo_dist, real_data):
+def enviar_consulta_kafka(tipo_dist):
     q, z1, conf = generar_pedido(tipo_dist)
     
+    cache_key = ""
+    detalles = {"confidence_min": conf, "z1": z1}
+    
     if q == "q1":
-        get_or_compute(f"count:{z1}:conf={conf}", "q1", q1_count, real_data, z1, confidence_min=conf)
+        cache_key = f"count:{z1}:conf={conf}"
     elif q == "q2":
-        get_or_compute(f"area:{z1}:conf={conf}", "q2", q2_area, real_data, z1, confidence_min=conf)
+        cache_key = f"area:{z1}:conf={conf}"
     elif q == "q3":
-        get_or_compute(f"density:{z1}:conf={conf}", "q3", q3_density, real_data, z1, confidence_min=conf)
+        cache_key = f"density:{z1}:conf={conf}"
     elif q == "q4":
         z2 = random.choice([z for z in ZONAS if z != z1])
-        get_or_compute(f"compare:{z1}:{z2}:conf={conf}", "q4", q4_compare, real_data, z1, z2, confidence_min=conf)
+        cache_key = f"compare:{z1}:{z2}:conf={conf}"
+        detalles["z2"] = z2
     elif q == "q5":
-        get_or_compute(f"dist:{z1}:bins=5", "q5", q5_confidence_dist, real_data, z1, bins=5)
+        cache_key = f"dist:{z1}:bins=5"
+        detalles["bins"] = 5
 
-def ejecutar_simulacion(nombre_experimento, tipo_dist, num_consultas, real_data):
-    print(f"\n--- INICIANDO TRÁFICO CONCURRENTE: {nombre_experimento} ---")
-    
-    inicio = time.time()
-    
+    query_id = str(uuid.uuid4())
+    kafka_client.send_event(
+        topic=TOPIC_PRINCIPAL,
+        query_type=q,
+        cache_key=cache_key,
+        detalles=detalles,
+        query_id=query_id,
+        retry_count=0
+    )
+
+def ejecutar_simulacion(nombre_experimento, tipo_dist, num_consultas, real_data=None):
+    print(f"Iniciando: {nombre_experimento}")
     with ThreadPoolExecutor(max_workers=20) as executor:
-        list(executor.map(lambda _: ejecutar_una_consulta(tipo_dist, real_data), range(num_consultas)))
-            
-    fin = time.time()
-    duracion = fin - inicio
-    print(f"✅ {num_consultas} consultas procesadas en {duracion:.2f} segundos.")
-    print(f"🚀 Tasa de llegada (Throughput simulación): {num_consultas/duracion:.2f} req/s")
+        list(executor.map(lambda _: enviar_consulta_kafka(tipo_dist), range(num_consultas)))
 
+def ejecutar_spike(tipo_dist, duracion_segundos, tasa_por_segundo, real_data=None):
+    print(f"Iniciando spike: {duracion_segundos}s a {tasa_por_segundo} req/s")
+    inicio = time.time()
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        while time.time() - inicio < duracion_segundos:
+            segundo_inicio = time.time()
+            for _ in range(tasa_por_segundo):
+                executor.submit(enviar_consulta_kafka, tipo_dist)
+            diff = time.time() - segundo_inicio
+            if diff < 1.0:
+                time.sleep(1.0 - diff)
 if __name__ == "__main__":
     print("--- PRUEBA INDIVIDUAL DEL GENERADOR ---")
     datos = load_data("data/buildings.csv")
